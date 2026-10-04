@@ -1,85 +1,81 @@
-#AI Vision Risk Assistant
+#AI Vision Risk Assistant for Android
 
-«An offline AI-powered visual assistance and collision-risk detection system for visually impaired people.»
+«An on-device AI vision assistant for visually impaired people that detects nearby objects, estimates risk, and provides real-time voice alerts.»
 
-AI Vision Risk Assistant is a real-time computer vision system designed to help visually impaired users understand nearby objects and potential collision risks.
+AI Vision Risk Assistant is an Android-based assistive vision prototype designed to help visually impaired users understand potentially dangerous objects around them.
 
-The system uses a webcam, object detection, object tracking, monocular depth estimation, distance estimation, motion analysis, TTC (Time to Collision), and a multi-level risk engine to generate voice-based safety alerts.
+The application uses the smartphone camera to detect objects, track their movement, estimate approximate distance, calculate collision risk, and provide real-time voice alerts.
 
-The entire system is designed to run locally on Ubuntu Linux without requiring an Internet connection or cloud API.
+The main goal is to provide useful safety information without requiring a cloud server or continuous Internet connection.
 
 ---
 
 🎯 Project Goal
 
-The main goal is to provide a local AI assistant that can answer:
+The application answers four important questions:
 
-- What object is in front of the user?
-- Where is the object?
-- Approximately how far away is it?
-- Is the object getting closer?
-- How quickly is it approaching?
-- Is the user's path blocked?
-- How dangerous is the situation?
-- When should the user receive an audio warning?
+1. What is around the user?
+2. Where is it?
+3. How close or dangerous is it?
+4. Should the user receive an alert?
 
 Example:
 
-«🎧 "Warning! Person from left, 1.4 meters."»
+«🎧 "Person on your left, 2 meters."»
 
-Or in a critical situation:
+If the risk becomes high:
 
-«🔊 "DANGER! Bicycle very close! Stop now!"»
+«🔊 "Warning! Bicycle approaching from right."»
+
+For critical situations:
+
+«🔊 "Danger! Object very close. Stop."»
 
 ---
 
 🧠 System Architecture
 
-                    Webcam
+                 📱 Android Phone
                        │
                        ▼
-                OpenCV Capture
+                CameraX Camera
                        │
                        ▼
-              Image Pre-processing
-             CLAHE + Gamma Correction
-                       │
-             ┌─────────┴─────────┐
-             │                   │
-             ▼                   ▼
-          YOLOv8n          Depth Anything V2
-             │                   │
-             ▼                   ▼
-        Object Detection    Depth Map
-             │                   │
-             ▼                   │
-       ByteTrack Tracking        │
-             │                   │
-             └─────────┬─────────┘
-                       ▼
-              Distance Estimation
+              Frame Pre-processing
                        │
                        ▼
-                Motion Analysis
+              On-device AI Model
+                 (Object Detection)
                        │
+                       ▼
+                 Object Tracking
+                       │
+              ┌────────┴────────┐
+              │                 │
+              ▼                 ▼
+       Distance/Depth      Motion Analysis
+        Estimation              │
+              │                 │
+              └────────┬────────┘
                        ▼
                  TTC Calculation
                        │
                        ▼
-              8-Factor Risk Engine
+               8-Factor Risk Engine
                        │
                        ▼
-                Risk Score 0–100
+                 Risk Score 0–100
                        │
                        ▼
-              Alert Decision Engine
+                Alert Decision
                        │
-              ┌────────┼────────┐
-              ▼        ▼        ▼
-           Warning   Voice    Sound
-                       │
+             ┌─────────┴─────────┐
+             ▼                   ▼
+       Android TTS           Alert Sound
+             │                   │
+             └─────────┬─────────┘
                        ▼
-                 User Feedback
+                  🎧 User
 
 ---
 
@@ -87,7 +83,9 @@ Or in a critical situation:
 
 1. Real-Time Object Detection
 
-Uses YOLOv8n to detect common objects such as:
+The phone camera continuously captures the user's surroundings.
+
+The AI model detects objects such as:
 
 - Person
 - Car
@@ -99,7 +97,7 @@ Uses YOLOv8n to detect common objects such as:
 - Cat
 - Chair
 - Bench
-- Other supported COCO objects
+- Other supported objects
 
 Each detection contains:
 
@@ -110,62 +108,62 @@ Object ID
 
 ---
 
-2. Object Tracking
+🔄 2. Object Tracking
 
-The system uses ByteTrack to maintain object identities across video frames.
+The application tracks detected objects across consecutive frames.
 
 Example:
 
 Person ID: 04
 
-Frame 1 → 2.8 m
-Frame 2 → 2.5 m
+Frame 1 → 3.0 m
+Frame 2 → 2.6 m
 Frame 3 → 2.2 m
-Frame 4 → 1.9 m
+Frame 4 → 1.8 m
 
-This allows the system to estimate whether an object is approaching the user.
+This helps determine whether an object is approaching the user.
 
 ---
 
 📏 3. Distance Estimation
 
-The system uses Depth Anything V2 Small for monocular depth estimation.
+The application attempts to estimate the approximate distance of detected objects.
 
-For each detected object:
+Possible approaches:
 
-YOLO Bounding Box
-        ↓
-Depth Map Crop
-        ↓
-Center Region Selection
-        ↓
-Median Depth
-        ↓
-Metric Calibration
-        ↓
-Estimated Distance
+Option A — Monocular Depth
 
-Example:
+Use an on-device monocular depth model.
 
-Person     → 1.8 m
-Bicycle    → 2.1 m
-Car        → 4.3 m
+Camera Image
+     ↓
+Depth Model
+     ↓
+Relative Depth
+     ↓
+Calibration
+     ↓
+Approximate Distance
 
-Important
+Option B — Device Depth Sensor
 
-Depth Anything V2 produces relative depth, not guaranteed metric distance.
+If the Android device provides a compatible depth sensor, its depth information can be used where available.
 
-Therefore, the system uses a calibration value:
-
-distance_m = DEPTH_AT_1_METER / median_depth
-
-The calibration value must be adjusted for the actual camera.
+The application should not assume every Android phone has a depth sensor.
 
 ---
 
 🧭 4. Direction Detection
 
-The position of the object inside the camera frame is classified as:
+The camera frame is divided into three primary regions:
+
+┌──────────┬──────────┬──────────┐
+│          │          │          │
+│   LEFT   │  CENTER  │  RIGHT   │
+│          │          │          │
+└──────────┴──────────┴──────────┘
+
+The application determines whether an object is:
 
 LEFT
 CENTER
@@ -173,131 +171,124 @@ RIGHT
 
 Example:
 
-Person → LEFT
-Car → CENTER
-Bicycle → RIGHT
-
-Voice output:
-
 «"Person on your left."»
 
 ---
 
-⚠️ 5. Time To Collision (TTC)
+⚠️ 5. Time To Collision
 
-The system estimates whether an object is getting closer.
+When enough motion information is available, the application estimates closing speed.
 
 Formula:
 
-TTC = distance / closing_speed
+TTC = Distance / Closing Speed
 
 Example:
 
-Distance = 1.5 m
+Distance = 2.0 m
 Closing Speed = 1.0 m/s
 
-TTC = 1.5 seconds
+TTC = 2 seconds
 
-A smaller TTC indicates a potentially more dangerous situation.
+Lower TTC indicates greater potential risk.
 
 ---
 
 🧮 6. 8-Factor Risk Engine
 
-The system calculates a risk score from 0 to 100.
+The application calculates a risk score between 0 and 100.
 
 The following factors are considered:
 
-Factor 1 — Object Type
+1. Object Type
 
-Different objects have different risk weights.
+Different objects receive different risk weights.
 
-Car / Truck / Bus  → 1.00
-Motorcycle         → 0.95
-Bicycle            → 0.75
-Person             → 0.65
-Dog                → 0.50
-Cat                → 0.40
-Chair / Bench      → 0.25
-Default            → 0.20
+Car / Truck / Bus → High
+Motorcycle        → High
+Bicycle            → Medium-High
+Person             → Medium
+Dog                → Medium
+Chair / Bench      → Low
 
-Factor 2 — Distance
+2. Distance
 
-Closer objects produce higher risk.
+Closer objects increase risk.
 
-Factor 3 — Direction
+3. Direction
 
-Objects near the center of the camera view receive higher risk.
+Objects near the center of the user's path receive higher risk.
 
-Factor 4 — Front / Side Position
+4. Object Position
 
-Large objects occupying more of the camera frame are treated as potentially more relevant.
+Large objects occupying more of the frame may represent a greater obstacle.
 
-Factor 5 — Velocity / TTC
+5. Motion / TTC
 
-Approaching objects increase the risk.
+Objects approaching the user increase risk.
 
-Factor 6 — User / Ego Motion
+6. User Motion
 
-The system estimates whether the user is:
+The system can attempt to determine whether the user is:
 
 FORWARD
 BACKWARD
 STATIONARY
 
-Factor 7 — Path Blocked
+using available camera/depth/motion information.
 
-The bottom-center region of the scene is analyzed to determine whether the user's path may be blocked.
+7. Path Blocking
 
-Factor 8 — Detection Confidence
+The system checks whether an object appears to block the user's forward path.
 
-Low-confidence detections contribute less to the final risk score.
+8. Detection Confidence
+
+Low-confidence detections have reduced influence on the final risk.
 
 ---
 
 🚨 7. Four-Level Alert System
 
-The final risk score determines the alert level.
-
-Risk| Level| Action
-0–25| 🟢 NO_EVENT| No alert
-25–50| 🟡 WARNING| Sound warning
-50–75| 🟠 USER_PROMPT| Voice warning
-75–100| 🔴 IMMEDIATE| Emergency voice alert
+┌──────────────┬───────────────┐
+│ Risk         │ Alert         │
+├──────────────┼───────────────┤
+│ 0 – 25       │ 🟢 No Alert   │
+│ 25 – 50      │ 🟡 Warning    │
+│ 50 – 75      │ 🟠 Prompt     │
+│ 75 – 100     │ 🔴 Immediate  │
+└──────────────┴───────────────┘
 
 ---
 
-🔊 Voice Alerts
+🎧 8. Voice Assistance
 
-WARNING
+Android's built-in Text-to-Speech system is used for voice alerts.
+
+Warning
 
 "Caution, bicycle nearby."
 
-USER PROMPT
+User Prompt
 
-"Warning! Bicycle from left, 1.4 meters."
+"Warning! Bicycle from left, 1.5 meters."
 
-IMMEDIATE
+Immediate
 
-"DANGER! Bicycle very close! Stop now!"
+"Danger! Bicycle very close. Stop."
 
-The system uses:
-
-pyttsx3
-
-for local text-to-speech.
-
-No cloud TTS API is required.
+The app should keep voice messages short because the user needs to understand them quickly.
 
 ---
 
-🔁 8. Alert Debounce & Cooldown
+🔁 9. Debounce and Cooldown
 
-To avoid repeating the same warning continuously, the system uses:
+The app should avoid repeatedly speaking the same warning.
 
 Debounce
 
-An event must remain active for a certain number of frames.
+An event must remain active for several frames before triggering an alert.
+
+Example:
 
 WARNING       → 5 frames
 USER_PROMPT   → 3 frames
@@ -305,283 +296,186 @@ IMMEDIATE     → 1 frame
 
 Cooldown
 
-The same alert cannot immediately repeat.
+The same alert cannot repeat immediately.
+
+Example:
 
 WARNING       → 4 seconds
 USER_PROMPT   → 2 seconds
 IMMEDIATE     → 0.5 seconds
 
-Higher-priority alerts override lower-priority alerts.
+Higher-risk alerts override lower-risk alerts.
 
 ---
 
-🛡️ Fault Tolerance
+📱 Android Technology Stack
 
-The system contains multiple safety layers.
+Recommended stack:
 
-Layer 1 — Camera Recovery
+Android Studio
+Kotlin
+CameraX
+Android Text-to-Speech
+Jetpack
+On-device AI inference
 
-If the webcam disconnects:
-
-Retry → 5 times
-Delay → 2 seconds
-
-Layer 2 — Image Pre-processing
-
-Lighting conditions:
-
-Low Light   → Gamma Correction
-Very Low     → CLAHE
-Normal       → Minimal processing
-
-Layer 3 — Detection Validation
-
-Invalid detections are rejected using:
-
-Confidence > 0.35
-Box size > 5 pixels
-Valid aspect ratio
-
-Layer 4 — Depth Fallback
-
-If depth estimation fails:
-
-Use last valid depth
-
-instead of crashing the entire system.
-
-Layer 5 — Performance Adaptation
-
-Depth estimation is computationally expensive.
-
-The system adapts according to FPS:
-
-FPS > 12
-→ Depth every 3 frames
-
-FPS 6–12
-→ Depth every 5 frames
-
-FPS < 6
-→ Depth every 10 frames
+For the AI model, use a model/runtime that is actually supported by the target Android deployment rather than assuming a desktop Python YOLO package can run unchanged on Android.
 
 ---
 
-💻 Hardware Requirements
+📁 Recommended Project Structure
 
-Minimum recommended:
-
-- Ubuntu Linux laptop
-- Built-in webcam or USB webcam
-- 4 GB RAM or more
-- Modern CPU
-- 5 GB+ free disk space
-
-Recommended:
-
-- 8 GB+ RAM
-- Intel Core i5 / AMD Ryzen 5 or better
-- NVIDIA GPU if available
-
-The system is designed to work on CPU-only machines, although performance may be lower.
+AI-Vision-Risk-Assistant/
+│
+├── app/
+│   └── src/
+│       └── main/
+│           ├── java/
+│           │   └── com/example/aivision/
+│           │       ├── MainActivity.kt
+│           │       ├── camera/
+│           │       │   └── CameraManager.kt
+│           │       ├── detection/
+│           │       │   ├── ObjectDetector.kt
+│           │       │   └── DetectionResult.kt
+│           │       ├── tracking/
+│           │       │   └── ObjectTracker.kt
+│           │       ├── depth/
+│           │       │   └── DepthEstimator.kt
+│           │       ├── risk/
+│           │       │   ├── RiskEngine.kt
+│           │       │   └── TTCCalculator.kt
+│           │       ├── alert/
+│           │       │   ├── AlertManager.kt
+│           │       │   └── VoiceManager.kt
+│           │       └── settings/
+│           │           └── AppSettings.kt
+│           │
+│           ├── res/
+│           │   ├── layout/
+│           │   ├── drawable/
+│           │   ├── mipmap/
+│           │   └── values/
+│           │
+│           └── AndroidManifest.xml
+│
+├── models/
+│   └── detection_model
+│
+├── README.md
+└── LICENSE
 
 ---
 
-🐧 Supported Operating Systems
+🔐 Privacy
 
-Tested target platforms:
+The core vision pipeline is intended to process camera frames on the device.
 
-Ubuntu 20.04 LTS
-Ubuntu 22.04 LTS
-Ubuntu 24.04 LTS
+The application should not upload camera frames to a remote server unless a future feature explicitly requires it and the user is informed.
 
----
-
-🛠️ Installation
-
-1. Install System Dependencies
-
-sudo apt update
-
-sudo apt install -y \
-python3 \
-python3-pip \
-python3-venv \
-libgl1 \
-libglib2.0-0 \
-libsm6 \
-libxext6 \
-libxrender-dev \
-git \
-espeak
+No account should be required for the basic offline functionality.
 
 ---
 
-2. Create Project Directory
+🌐 Offline Operation
 
-mkdir -p ~/ai_vision_system
-cd ~/ai_vision_system
+The target architecture is:
 
----
+📱 Camera
+   ↓
+On-device AI
+   ↓
+Object Detection
+   ↓
+Tracking
+   ↓
+Distance / Depth
+   ↓
+Risk Engine
+   ↓
+Android TTS
+   ↓
+🎧 User
 
-3. Create Virtual Environment
+Internet should not be required for the core detection and alert pipeline.
 
-python3 -m venv venv
-
-Activate it:
-
-source venv/bin/activate
-
----
-
-4. Install Python Dependencies
-
-pip install --upgrade pip
-
-pip install \
-ultralytics \
-opencv-python \
-numpy \
-lapx \
-torch \
-torchvision \
-transformers \
-huggingface_hub \
-pillow \
-accelerate \
-pyttsx3 \
-pygame
+However, model files and application dependencies need to be installed/downloaded beforehand.
 
 ---
 
-📁 Project Structure
+⚡ Performance Strategy
 
-ai_vision_system/
-│
-├── venv/
-│
-├── main.py
-│
-├── risk_alert_system.py
-│
-├── depth_estimator.py
-│
-├── preprocessor.py
-│
-├── config.py
-│
-├── requirements.txt
-│
-├── alert_sounds/
-│   ├── warning.wav
-│   └── immediate.wav
-│
-└── README.md
+Real-time computer vision can be demanding on mobile hardware.
 
----
+The application should use:
 
-⚙️ Configuration
-
-All major thresholds should be stored in:
-
-config.py
+- Reduced camera resolution when necessary
+- Efficient on-device models
+- Frame skipping
+- Detection interval control
+- Depth estimation at a lower frequency
+- Tracking between detection frames
+- Lightweight image preprocessing
+- Background processing
+- Avoiding unnecessary UI rendering
 
 Example:
 
-CAMERA_INDEX = 0
-
-FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
-
-CONFIDENCE_THRESHOLD = 0.35
-
-DEPTH_INTERVAL = 3
-
-DEPTH_AT_1_METER = 180.0
-
-MIN_DISTANCE = 0.1
-MAX_DISTANCE = 30.0
-
-WARNING_RISK = 25
-USER_PROMPT_RISK = 50
-IMMEDIATE_RISK = 75
-
----
-
-▶️ Running the System
-
-Activate the environment:
-
-cd ~/ai_vision_system
-source venv/bin/activate
-
-Run:
-
-python3 main.py
-
-The webcam should open and start processing frames.
-
----
-
-📷 Camera
-
-The default camera is:
-
-/dev/video0
-
-OpenCV:
-
-cap = cv2.VideoCapture(0)
-
-If multiple cameras exist:
-
-ls /dev/video*
-
-You may need to change:
-
-CAMERA_INDEX = 1
+Detection → every frame or selected interval
+Depth     → every 3–5 frames
+Tracking  → continuously
+Risk      → continuously using latest valid data
+Voice     → only when alert state changes
 
 ---
 
 🧪 Distance Calibration
 
-Place a known object approximately 1 meter from the camera.
+Monocular depth estimation does not automatically guarantee accurate real-world meters.
 
-For example:
+The app should provide a calibration process.
 
-Actual Distance = 1.0 meter
+Example:
 
-Suppose the depth system produces:
+Place an object 1 meter away.
 
-Median Depth = 200
+Actual distance:
+1.0 meter
 
-The calibration constant can initially be adjusted so that:
+Model output:
+relative depth value
 
-200 → approximately 1 meter
+Calibration:
+adjust model-to-distance mapping
 
-The calibration must be tested with the actual webcam because monocular depth estimation is affected by:
+Calibration should be tested using the actual phone camera.
 
-- Camera position
-- Camera field of view
+Results can change depending on:
+
+- Camera
+- Lens
 - Lighting
-- Object type
-- Scene geometry
-- Camera resolution
+- Field of view
+- Camera position
+- Object size
+- Environment
 
 ---
 
-📊 Example Output
+📊 Example Runtime Output
 
---------------------------------------------------
+For development/debugging:
+
 AI Vision Risk Assistant
---------------------------------------------------
 
-FPS: 14.2
+FPS: 18
 
 Object: Person
 ID: 04
+
 Distance: 1.42 m
 Direction: CENTER
+
 Closing Speed: 0.82 m/s
 TTC: 1.73 s
 
@@ -589,158 +483,261 @@ Risk Score: 67
 Alert: USER_PROMPT
 
 Voice:
-"Warning! Person from center, 1.4 meters."
---------------------------------------------------
+
+«"Warning! Person ahead, 1.4 meters."»
 
 ---
 
-🔒 Offline Architecture
+🛠️ Development Phases
 
-The project is designed to operate locally:
+Phase 1 — Camera
+
+Implement:
+
+CameraX
+↓
+Live camera frames
+
+---
+
+Phase 2 — Object Detection
+
+Add:
 
 Camera
-   ↓
-Local Ubuntu Laptop
-   ↓
-YOLOv8
-   ↓
-Depth Anything V2
-   ↓
-Risk Engine
-   ↓
-Local TTS
-   ↓
-User
-
-No:
-
-❌ Cloud API
-❌ Online object detection
-❌ Cloud speech recognition
-❌ Cloud translation
-❌ Remote server
-
-is required for the core vision pipeline.
+↓
+On-device object detector
+↓
+Bounding boxes
+↓
+Object labels
 
 ---
 
-📚 Main Technologies
+Phase 3 — Voice
 
-Object Detection
+Add Android Text-to-Speech.
 
-Ultralytics YOLO
+Example:
 
-https://github.com/ultralytics/ultralytics
+Detected:
+Person
 
-Object Tracking
-
-ByteTrack
-
-https://github.com/ifzhang/ByteTrack
-
-Depth Estimation
-
-Depth Anything V2
-
-https://github.com/DepthAnything/Depth-Anything-V2
-
-Depth Anything V2 Hugging Face
-
-https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf
-
-Computer Vision
-
-OpenCV
-
-https://github.com/opencv/opencv-python
-
-Alert Logic Reference
-
-openpilot
-
-https://github.com/commaai/openpilot
+Voice:
+"Person ahead."
 
 ---
 
-🧩 Future Improvements
+Phase 4 — Direction
 
-Possible future features:
+Add:
 
-- Spatial audio
-- Bengali voice alerts
-- Multiple language voice output
-- Better metric depth calibration
-- Stereo camera support
-- GPS integration
-- Indoor navigation
-- Outdoor navigation
-- Better pedestrian trajectory prediction
-- Personalized risk thresholds
-- Wearable camera support
-- Vibration feedback
-- Lightweight models for low-end CPUs
+LEFT
+CENTER
+RIGHT
+
+Voice:
+
+«"Person on your right."»
+
+---
+
+Phase 5 — Tracking
+
+Add object IDs and motion tracking.
+
+Person ID 01
+↓
+Distance changes
+↓
+Closing / moving away
+
+---
+
+Phase 6 — Distance
+
+Add depth/distance estimation.
+
+Example:
+
+Person → 1.8 m
+Car → 3.4 m
+
+---
+
+Phase 7 — TTC
+
+Add closing-speed estimation and TTC.
+
+---
+
+Phase 8 — Risk Engine
+
+Implement the 8 risk factors.
+
+Output:
+
+Risk = 0–100
+
+---
+
+Phase 9 — Alert Engine
+
+Implement:
+
+NO_EVENT
+WARNING
+USER_PROMPT
+IMMEDIATE
+
+with debounce and cooldown.
+
+---
+
+Phase 10 — Optimization
+
+Optimize for:
+
+Battery
+FPS
+CPU/GPU/NPU usage
+Memory
+Latency
 
 ---
 
 ⚠️ Limitations
 
-This is an assistive AI prototype, not a certified mobility or safety device.
+This is a research/prototype assistive system.
 
-Monocular depth estimation can produce inaccurate distance estimates.
+It should not be treated as a certified replacement for a white cane, guide dog, or other established mobility aid.
 
-Risk prediction may fail because of:
+Potential sources of error include:
 
-- Poor lighting
-- Occlusion
-- Camera movement
-- Fast-moving objects
 - Incorrect object detection
+- Poor lighting
+- Camera obstruction
 - Depth estimation errors
-- Unusual environments
+- Fast-moving objects
+- Occlusion
+- Camera motion
+- Incorrect distance estimation
+- Phone hardware limitations
 
-Users should not rely on this system as their only means of navigation or safety.
+Safety-critical decisions should therefore not rely exclusively on the app.
 
 ---
 
 🎓 Research Contribution
 
-The project combines several computer vision components into a single risk-aware assistive pipeline:
+The main research focus is not simply:
+
+«"Detect an object."»
+
+Instead, the project combines:
 
 Object Detection
         +
 Object Tracking
         +
-Monocular Depth
+Distance / Depth Estimation
         +
-Distance Estimation
+Direction Estimation
         +
 Motion Analysis
         +
 TTC
         +
-8-Factor Risk Model
+8-Factor Risk Calculation
         +
 Adaptive Alert Engine
         +
-Local Voice Assistance
+On-Device Voice Assistance
 
-The primary research focus is not simply detecting objects, but determining which detected objects represent an immediate collision risk and generating an appropriate audio alert.
-
----
-
-👨‍💻 Project Status
-
-Project Type: Research / Prototype
-Platform: Ubuntu Linux
-Processing: Local / Offline
-Input: Webcam
-Output: Voice + Visual Debugging
-Target Users: Visually Impaired People
+The goal is to develop a risk-aware AI vision assistant that provides concise audio warnings to visually impaired users.
 
 ---
 
-📜 License
+🚀 Future Features
 
-This project is intended for educational and research purposes.
+Possible future improvements:
 
-Individual third-party models and libraries remain subject to their respective licenses.
+- Bengali voice alerts
+- English/Bengali language selection
+- Spatial audio
+- Vibration alerts
+- Headphone support
+- Personalized risk thresholds
+- Better depth estimation
+- Device sensor fusion
+- Indoor navigation
+- Outdoor navigation
+- GPS integration
+- Crosswalk detection
+- Traffic-light detection
+- Road/sidewalk detection
+- Person trajectory prediction
+- Emergency mode
+- Battery-saving mode
+
+---
+
+📌 Project Summary
+
+Project:
+AI Vision Risk Assistant
+
+Platform:
+Android
+
+Input:
+Smartphone Camera
+
+Processing:
+On-device AI
+
+Output:
+Voice + Sound + Optional Vibration
+
+Target Users:
+Visually Impaired People
+
+Main Functions:
+Object Detection
+Object Tracking
+Direction Detection
+Distance Estimation
+TTC
+Risk Calculation
+Voice Alert
+
+Internet:
+Not required for core operation
+
+---
+
+⚠️ Important Development Note
+
+The first working Android prototype should not attempt every feature at once.
+
+Recommended order:
+
+Camera
+  ↓
+Object Detection
+  ↓
+Voice
+  ↓
+Direction
+  ↓
+Tracking
+  ↓
+Distance
+  ↓
+TTC
+  ↓
+Risk Engine
+  ↓
+Final Alert System
+
+This makes debugging and research evaluation much easier.
